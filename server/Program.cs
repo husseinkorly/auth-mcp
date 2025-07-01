@@ -6,10 +6,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add MCP server with HTTP transport
 builder.Services.AddMcpServer()
-    .WithHttpTransport()
+    .WithHttpTransport(options =>
+    {
+        options.Stateless = true;
+    })
     .WithTools<GraphTools>();
 
 builder.Services.AddHttpClient();
+
 // Add CORS policy for cross-origin requests
 builder.Services.AddCors(options =>
 {

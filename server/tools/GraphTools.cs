@@ -46,7 +46,6 @@ public class GraphTools(
     [McpServerTool, Description("Get current user's profile information from Microsoft Graph.")]
     public async Task<string> GetMyProfile()
     {
-        Console.WriteLine("Fetching user profile...");
         try
         {
             var token = await GetAccessToken();

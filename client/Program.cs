@@ -7,7 +7,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using ModelContextProtocol.Client;
 
-
+// reading configuration
 var builder = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
@@ -19,13 +19,26 @@ var configuration = builder.Build();
 var credentials = new AzureCliCredential();
 HttpClient httpClient = new();
 
+var scopes = configuration.GetSection("AzureAD:Scopes").Get<string[]>();
+if (scopes == null || scopes.Length == 0)
+{
+    throw new InvalidOperationException("AzureAD:Scopes configuration is required");
+}
+
 var token = await credentials.GetTokenAsync(
-    new TokenRequestContext(["api://b17cb93c-9c74-4d94-97a8-76cbb3d9ff12/.default"]));
+    new TokenRequestContext(scopes));
 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+
+var mcpServerUrl = configuration["McpServer:Url"];
+if (string.IsNullOrEmpty(mcpServerUrl))
+{
+    throw new InvalidOperationException("McpServer:Url configuration is required");
+}
+
 var transportOptions = new SseClientTransport(new SseClientTransportOptions
 {
     Name = "MCP Client",
-    Endpoint = new Uri("http://localhost:3001"),
+    Endpoint = new Uri(mcpServerUrl),
     TransportMode = HttpTransportMode.StreamableHttp
 }, httpClient: httpClient, ownsHttpClient: false);
 var mcpClient = await McpClientFactory.CreateAsync(transportOptions);
@@ -41,9 +54,21 @@ foreach (var tool in remoteTools)
 
 // building the kernel
 var kernelBuilder = Kernel.CreateBuilder();
+var deploymentName = configuration["AzureOpenAI:DeploymentName"];
+if (string.IsNullOrEmpty(deploymentName))
+{
+    throw new InvalidOperationException("AzureOpenAI:DeploymentName configuration is required");
+}
+
+var endpoint = configuration["AzureOpenAI:Endpoint"];
+if (string.IsNullOrEmpty(endpoint))
+{
+    throw new InvalidOperationException("AzureOpenAI:Endpoint configuration is required");
+}
+
 kernelBuilder.AddAzureOpenAIChatCompletion(
-    deploymentName: "gpt-4o-mini",
-    endpoint: "https://understand-foundry2.cognitiveservices.azure.com",
+    deploymentName: deploymentName,
+    endpoint: endpoint,
     credentials: credentials
 );
 Kernel kernel = kernelBuilder.Build();
